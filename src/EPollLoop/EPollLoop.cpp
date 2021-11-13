@@ -24,7 +24,8 @@
 #include "EPollLoop.hpp"
 
 EPollLoop::EPollLoop() :
-  epollfd_(epoll_create1(0))
+  epollfd_(epoll_create1(0)),
+  numHandlers_(0)
 {
   if (epollfd_ < 0) {
     throw CreateError();
@@ -41,17 +42,19 @@ int EPollLoop::add_handler(EPollHandlerInterface* handler) noexcept {
     return -1;
   }
 
+  ++numHandlers_;
   return handler->init();
 }
 
 int EPollLoop::del_handler(EPollHandlerInterface* handler) noexcept {
   const int r = handler->epoll_del(epollfd_);
   delete handler;
+  --numHandlers_;
   return r;
 }
 
-[[ noreturn ]] void EPollLoop::run() noexcept {
-  while (true) {
+void EPollLoop::run() noexcept {
+  while (numHandlers_ > 0) {
     const size_t max_events = 10;
     epoll_event events[max_events];
     const int numevents = epoll_wait(epollfd_, events, max_events, -1);
@@ -62,20 +65,26 @@ int EPollLoop::del_handler(EPollHandlerInterface* handler) noexcept {
 
       if (ev->events & EPOLLIN) {
         if (handler->process_read() < 0) {
-          del_handler(handler);
+          if (del_handler(handler) < 0) {
+            break;
+          }
           continue;
         }
       }
 
       if (ev->events & EPOLLOUT) {
         if (handler->process_write() < 0) {
-          del_handler(handler);
+          if (del_handler(handler) < 0) {
+            break;
+          }
           continue;
         }
       }
 
       if (ev->events & (EPOLLERR | EPOLLHUP)) {
-        del_handler(handler);
+        if (del_handler(handler) < 0) {
+          break;
+        }
         continue;
       }
     }

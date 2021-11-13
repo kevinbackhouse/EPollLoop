@@ -61,6 +61,7 @@ private:
 
 class EPollLoop final {
   const int epollfd_;
+  size_t numHandlers_;
 
 public:
   // Exception thrown by EPollLoop constructor if it fails
@@ -94,12 +95,11 @@ public:
   // negative.
   int del_handler(EPollHandlerInterface* handler) noexcept;
 
-  // This function runs an infinite loop, listening for epoll events. You
-  // need to use `epoll_create1` to initialize epoll before calling this
-  // function. You also need to open the relevant sockets and register them
-  // with epoll before calling this function, for example by calling
-  // `EPollStreamConnectHandler::build()`.
-  [[ noreturn ]] void run() noexcept;
+  // This function loops, listening for epoll events. The loop ends when
+  // there are no more handlers registered. You should open the relevant
+  // sockets and register them with epoll before calling this function, for
+  // example by calling `EPollStreamConnectHandler::build()`.
+  void run() noexcept;
 };
 
 // Rather than passing the Datagram socket's file descriptor to
