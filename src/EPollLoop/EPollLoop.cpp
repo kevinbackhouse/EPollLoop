@@ -47,6 +47,19 @@ int EPollLoop::add_handler(EPollHandlerInterface* handler) noexcept {
 }
 
 int EPollLoop::del_handler(EPollHandlerInterface* handler) noexcept {
+  // Check if there's a replacement handler for us to swap in.
+  EPollHandlerInterface* nexthandler = handler->getNextHandler();
+  if (nexthandler) {
+    if (handler->epoll_replace(epollfd_, nexthandler) >= 0) {
+      // Replacement was successful, so delete the old handler.
+      delete handler;
+      return nexthandler->init();
+    }
+
+    // Replacement failed, so delete both handlers.
+    delete nexthandler;
+  }
+
   const int r = handler->epoll_del(epollfd_);
   delete handler;
   --numHandlers_;
@@ -109,6 +122,19 @@ int EPollHandlerInterface::epoll_add(const int epollfd) noexcept {
 
 int EPollHandlerInterface::epoll_del(const int epollfd) noexcept {
   if (epoll_ctl(epollfd, EPOLL_CTL_DEL, sock_, 0) == -1) {
+    return -1;
+  }
+  return 0;
+}
+
+int EPollHandlerInterface::epoll_replace(
+  const int epollfd, EPollHandlerInterface* newhandler
+) noexcept {
+  assert(sock_ == newhandler->sock_);
+  epoll_event ev = {};
+  ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
+  ev.data.ptr = (void*)newhandler;
+  if (epoll_ctl(epollfd, EPOLL_CTL_MOD, sock_, &ev) == -1) {
     return -1;
   }
   return 0;

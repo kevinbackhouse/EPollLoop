@@ -51,12 +51,24 @@ protected:
   // should be closed and the epoll handler deleted.
   virtual int process_write() noexcept = 0;
 
+  // Override this method if you want another handler to take over from
+  // this one when this one is done. EPollLoop::del_handler() calls this
+  // method. If the result is non-null, then it uses EPOLL_CTL_MOD
+  // to install the new handler. Note: the pointer returned by this method
+  // is owned by the caller.
+  virtual EPollHandlerInterface* getNextHandler() noexcept { return nullptr; }
+
 private:
   // Helper method for `EPollLoop::add_handler()`.
   int epoll_add(const int epollfd) noexcept;
 
   // Helper method for `EPollLoop::del_handler()`.
   int epoll_del(const int epollfd) noexcept;
+
+  // Registers a replacement handler with epoll.
+  int epoll_replace(
+    const int epollfd, EPollHandlerInterface* newhandler
+  ) noexcept;
 };
 
 class EPollLoop final {
