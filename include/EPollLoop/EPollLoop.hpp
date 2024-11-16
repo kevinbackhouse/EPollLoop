@@ -1,4 +1,4 @@
-// Copyright 2021 Kevin Backhouse.
+// Copyright 2021-2024 Kevin Backhouse.
 //
 // This file is part of EPollLoop.
 //
@@ -130,6 +130,8 @@ public:
 
 class RecvHandlerDatagram {
 public:
+  virtual ~RecvHandlerDatagram() {};
+
   // This method is called by `EPollRecvHandlerDatagram::process_read`
   // when a message is received. Return 0 to keep receiving messages,
   // or a negative number to close the socket and delete the epoll
