@@ -36,6 +36,8 @@ EPollLoop::~EPollLoop() {
   close(epollfd_);
 }
 
+EPollLoop::CreateError::CreateError() noexcept : err_(errno) {}
+
 int EPollLoop::add_handler(EPollHandlerInterface* handler) noexcept {
   if (handler->epoll_add(epollfd_) < 0) {
     delete handler;
