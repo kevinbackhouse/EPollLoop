@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/epoll.h>
 #include <memory>
+#include <sys/epoll.h>
+#include <sys/socket.h>
 
 // Base class for handling notifications from epoll.
 class EPollHandlerInterface {
@@ -56,7 +56,7 @@ protected:
   // method. If the result is non-null, then it uses EPOLL_CTL_MOD
   // to install the new handler. Note: the pointer returned by this method
   // is owned by the caller.
-  virtual EPollHandlerInterface* getNextHandler() noexcept { return nullptr; }
+  virtual EPollHandlerInterface *getNextHandler() noexcept { return nullptr; }
 
 private:
   // Helper method for `EPollLoop::add_handler()`.
@@ -66,9 +66,8 @@ private:
   int epoll_del(const int epollfd) noexcept;
 
   // Registers a replacement handler with epoll.
-  int epoll_replace(
-    const int epollfd, EPollHandlerInterface* newhandler
-  ) noexcept;
+  int epoll_replace(const int epollfd,
+                    EPollHandlerInterface *newhandler) noexcept;
 };
 
 class EPollLoop final {
@@ -78,13 +77,13 @@ class EPollLoop final {
 public:
   // Exception thrown by EPollLoop constructor if it fails
   // to initialize epoll.
-  class CreateError: public std::exception {
+  class CreateError : public std::exception {
     const int err_;
 
   public:
     CreateError() noexcept;
 
-    const char* what() const noexcept override {
+    const char *what() const noexcept override {
       return "Call to epoll_create1 failed.";
     }
 
@@ -99,13 +98,13 @@ public:
 
   // Takes ownership of `handler`. Returns zero on success, otherwise
   // negative.
-  int add_handler(EPollHandlerInterface* handler) noexcept;
+  int add_handler(EPollHandlerInterface *handler) noexcept;
 
   // Unregisters `handler` from epoll and calls `delete handler`. This
   // method is called by `run()` when the socket shuts down either
   // gracefully or due to an error. Returns zero on success, otherwise
   // negative.
-  int del_handler(EPollHandlerInterface* handler) noexcept;
+  int del_handler(EPollHandlerInterface *handler) noexcept;
 
   // This function loops, listening for epoll events. The loop ends when
   // there are no more handlers registered. You should open the relevant
@@ -122,25 +121,22 @@ public:
   virtual ~SocketHandlerDatagram() {}
 
   // Send a reply. (Wrapper around sendto().)
-  virtual ssize_t replyto(
-    const void* buf, size_t buflen,
-    const sockaddr *dest_addr, socklen_t addrlen
-  ) noexcept = 0;
+  virtual ssize_t replyto(const void *buf, size_t buflen,
+                          const sockaddr *dest_addr,
+                          socklen_t addrlen) noexcept = 0;
 };
 
 class RecvHandlerDatagram {
 public:
-  virtual ~RecvHandlerDatagram() {};
+  virtual ~RecvHandlerDatagram(){};
 
   // This method is called by `EPollRecvHandlerDatagram::process_read`
   // when a message is received. Return 0 to keep receiving messages,
   // or a negative number to close the socket and delete the epoll
   // handler.
-  virtual int receive(
-    const void* buf, ssize_t len,
-    SocketHandlerDatagram& sock,
-    const sockaddr* peer_addr, socklen_t peer_addr_len
-  ) noexcept = 0;
+  virtual int receive(const void *buf, ssize_t len, SocketHandlerDatagram &sock,
+                      const sockaddr *peer_addr,
+                      socklen_t peer_addr_len) noexcept = 0;
 };
 
 // Rather than passing the Stream socket's file descriptor to
@@ -152,18 +148,18 @@ public:
   // otherwise negative. Note: there is no guarantee that the data
   // is sent immediately. If the socket isn't ready then the data
   // might get buffered for sending later.
-  virtual int reply(const void* buf, size_t buflen) noexcept = 0;
+  virtual int reply(const void *buf, size_t buflen) noexcept = 0;
 };
 
 class RecvHandlerStream {
 public:
-  virtual ~RecvHandlerStream() {};
+  virtual ~RecvHandlerStream(){};
 
   // This is method is called immediately after the connection is
   // accepted. The return value is the number of bytes expected on the next
   // message. But if the return value is negative then it means that the
   // socket should be closed and the epoll handler deleted.
-  virtual ssize_t accept(SocketHandlerStream& sock) noexcept = 0;
+  virtual ssize_t accept(SocketHandlerStream &sock) noexcept = 0;
 
   // `EPollRecvHandlerStream` calls this method when it has received the
   // number of bytes that we asked for. Unlike the corresponding method in
@@ -173,7 +169,8 @@ public:
   // message to be.) The return value is the number of bytes expected on
   // the next message. But if the return value is negative then it means
   // that the socket should be closed and the epoll handler deleted.
-  virtual ssize_t receive(SocketHandlerStream& sock, const void* buf) noexcept = 0;
+  virtual ssize_t receive(SocketHandlerStream &sock,
+                          const void *buf) noexcept = 0;
 
   // The socket disconnected before we were finished sending/receiving.
   virtual void disconnect() noexcept = 0;
@@ -182,36 +179,30 @@ public:
 // Factory class for constructing instances of RecvHandlerStream.
 class BuildRecvHandlerStream {
 public:
-  virtual ~BuildRecvHandlerStream() {};
+  virtual ~BuildRecvHandlerStream(){};
 
-  virtual std::unique_ptr<RecvHandlerStream> build(
-    sockaddr* peer_addr, socklen_t peer_addr_len
-  ) = 0;
+  virtual std::unique_ptr<RecvHandlerStream> build(sockaddr *peer_addr,
+                                                   socklen_t peer_addr_len) = 0;
 };
 
 // Implementation of EPollHandlerInterface which reads data from
 // a file descriptor. The data that was read is passed to the `handler_`
 // field for further processing.
-class EPollRecvHandlerDatagram :
-  public EPollHandlerInterface,
-  virtual private SocketHandlerDatagram
-{
+class EPollRecvHandlerDatagram : public EPollHandlerInterface,
+                                 virtual private SocketHandlerDatagram {
   // Handler pointer is owned by this class.
   const std::unique_ptr<RecvHandlerDatagram> handler_;
 
   // Implements SocketHandlerDatagram interface.
-  ssize_t replyto(
-    const void* buf, size_t buflen,
-    const sockaddr *dest_addr, socklen_t addrlen
-  ) noexcept override;
+  ssize_t replyto(const void *buf, size_t buflen, const sockaddr *dest_addr,
+                  socklen_t addrlen) noexcept override;
 
 public:
   // Takes ownership of `handler`. The ownership model for the `sock` file
   // descriptor is unspecified, as explained in the comments in
   // `EPollHandlerInterface`.
   EPollRecvHandlerDatagram(
-    const int sock, std::unique_ptr<RecvHandlerDatagram>&& handler
-  ) noexcept;
+      const int sock, std::unique_ptr<RecvHandlerDatagram> &&handler) noexcept;
 
   int init() noexcept override { return 0; }
 
@@ -226,9 +217,9 @@ public:
 
 // Manages a byte buffer for receiving data from a socket.
 class RecvBuf final {
-  uint8_t* recvbuf_;  // Buffer for incoming data.
-  size_t received_;   // Number of bytes received so far. (Stored in `recvbuf_`.)
-  size_t remaining_;  // Number of bytes we are still waiting for.
+  uint8_t *recvbuf_; // Buffer for incoming data.
+  size_t received_;  // Number of bytes received so far. (Stored in `recvbuf_`.)
+  size_t remaining_; // Number of bytes we are still waiting for.
 
 public:
   RecvBuf() noexcept;
@@ -239,10 +230,10 @@ public:
   int reset(size_t size) noexcept;
 
   // Get a pointer to the buffer.
-  void* get() const noexcept { return recvbuf_; }
+  void *get() const noexcept { return recvbuf_; }
 
   // Get a pointer to the current position in the buffer.
-  void* curr() const noexcept { return recvbuf_ + received_; }
+  void *curr() const noexcept { return recvbuf_ + received_; }
 
   // Update `received_` after receiving data.
   void incr(const ssize_t recvsize) noexcept {
@@ -256,9 +247,9 @@ public:
 
 // Manages a byte buffer for sending data to a socket.
 class SendBuf final {
-  uint8_t* sendbuf_;  // Buffer for outgoing data.
-  size_t remaining_;  // Number of bytes remaining to send.
-  size_t pos_;        // Number of bytes already sent.
+  uint8_t *sendbuf_; // Buffer for outgoing data.
+  size_t remaining_; // Number of bytes remaining to send.
+  size_t pos_;       // Number of bytes already sent.
 
 public:
   SendBuf() noexcept;
@@ -272,10 +263,10 @@ public:
 
   // Append more bytes to the send buffer. (Allocates more memory if
   // necessary.) Returns zero on success, otherwise negative.
-  int append(const void* buf, size_t buflen) noexcept;
+  int append(const void *buf, size_t buflen) noexcept;
 
   // Get a pointer to the current position in the buffer.
-  void* curr() const noexcept { return sendbuf_ + pos_; }
+  void *curr() const noexcept { return sendbuf_ + pos_; }
 
   // Update `pos_` after receiving data.
   void incr(const ssize_t sendsize) noexcept {
@@ -287,10 +278,8 @@ public:
 // Implementation of EPollHandlerInterface which reads data from
 // a file descriptor. The data that was read is passed to the `handler_`
 // field for further processing.
-class EPollRecvHandlerStream :
-  public EPollHandlerInterface,
-  virtual private SocketHandlerStream
-{
+class EPollRecvHandlerStream : public EPollHandlerInterface,
+                               virtual private SocketHandlerStream {
   // Handler pointer is owned by this class.
   const std::unique_ptr<RecvHandlerStream> handler_;
 
@@ -302,15 +291,14 @@ class EPollRecvHandlerStream :
   int init() noexcept override;
 
   // Implements SocketHandlerStream interface.
-  int reply(const void* buf, size_t buflen) noexcept override;
+  int reply(const void *buf, size_t buflen) noexcept override;
 
 public:
   // Takes ownership of `handler`. The ownership model for the `sock` file
   // descriptor is unspecified, as explained in the comments in
   // `EPollHandlerInterface`.
-  EPollRecvHandlerStream(
-    const int sock, std::unique_ptr<RecvHandlerStream>&& handler
-  ) noexcept;
+  EPollRecvHandlerStream(const int sock,
+                         std::unique_ptr<RecvHandlerStream> &&handler) noexcept;
 
   int process_read() noexcept override;
   int process_write() noexcept override;
@@ -321,7 +309,7 @@ public:
 class EPollStreamConnectHandler : public EPollHandlerInterface {
   // Reference to the EPoll object that owns this handler.
   // TODO: pass this as an argument to process_read/process_write instead?
-  EPollLoop& loop_;
+  EPollLoop &loop_;
 
   // Factory pointer is owned by this class.
   std::unique_ptr<BuildRecvHandlerStream> factory_;
@@ -331,9 +319,8 @@ public:
   // `factory`. The ownership model for the `sock` file descriptor is
   // unspecified, as explained in the comments in `EPollHandlerInterface`.
   EPollStreamConnectHandler(
-    const int sock, EPollLoop& loop,
-    std::unique_ptr<BuildRecvHandlerStream>&& factory
-  ) noexcept;
+      const int sock, EPollLoop &loop,
+      std::unique_ptr<BuildRecvHandlerStream> &&factory) noexcept;
 
   int process_read() noexcept override;
   int process_write() noexcept override;
