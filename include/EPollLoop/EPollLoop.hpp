@@ -82,7 +82,7 @@ public:
     const int err_;
 
   public:
-    CreateError() noexcept : err_(errno) {}
+    CreateError() noexcept;
 
     const char* what() const noexcept override {
       return "Call to epoll_create1 failed.";
